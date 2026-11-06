@@ -32,7 +32,7 @@ The profile hook applies to newly opened PowerShell terminals. An existing termi
 . $HOME/.config/herdr-app/integration/herdr-cwd.ps1
 ```
 
-The Git panel can remain open. After `cd` returns to the PowerShell prompt, the hook updates the terminal label and the panel checks for a new location once per second. To update a terminal's label manually instead:
+The Git panel can remain open. After `cd` returns to the PowerShell prompt, the hook updates the terminal label and the panel checks for a new location once per second. Resizing the panel only redraws its layout; the resize callback does not read Git history. To update a terminal's label manually instead:
 
 ```powershell
 hc label <terminal-id> "workspace.cwd=$((Get-Location).ProviderPath)"

@@ -12,14 +12,20 @@ import { icon } from "./menu.js";
 import { available, check, openUpdate, newer } from "./update.js";
 import { depthOf, unsearched, findArgs, parseFound, REPO_STATUS, LATEST_TAG, FETCH, REMOTES, fetchable, parseRepoStatus, parseRemotes, webUrl, syncOf } from "./repos.js";
 
-function location(folder) {
+function location(folder, previous) {
   if (folder) return { cwd: folder, on: null };
   const space = spaces().find((s) => s.active), f = focused();
   const pane = f?.pane ? panes().find((p) => p.pane === f.pane) : null;
   const on = f?.pane === null ? (f.terminal?.includes("/") ? f.terminal.split("/")[0] : null) : space?.machine ?? null;
   const address = f?.terminal || pane?.terminal;
+  // Resizing can focus the panel or divider briefly. Keep the terminal selected
+  // in this tab until another terminal or tab is explicitly focused.
+  if (!address && previous && (!f?.tab || f.tab === previous.tab) && (!f?.space || f.space === previous.space)) {
+    const reported = terminals().find((t) => t.address === previous.address)?.labels?.["workspace.cwd"];
+    return { ...previous, cwd: reported || previous.cwd };
+  }
   const reported = address ? terminals().find((t) => t.address === address)?.labels?.["workspace.cwd"] : null;
-  return { cwd: reported || pane?.cwd || f?.cwd || space?.folder, on };
+  return { cwd: reported || pane?.cwd || f?.cwd || space?.folder, on, address, tab: f?.tab, space: f?.space };
 }
 
 const PAGE = 300, ROW = 24, LANE = 12, PAD = 6, DIFF_ROW = 20;
@@ -146,7 +152,12 @@ export class Graph {
     check();
   }
 
-  key() { return JSON.stringify(location(this.folder)); }
+  location() {
+    const found = location(this.folder, this.lastLocation);
+    if (found.address) this.lastLocation = found;
+    return { cwd: found.cwd, on: found.on };
+  }
+  key() { return JSON.stringify(this.location()); }
 
   reset() {
     Object.assign(this, folderState());
@@ -198,7 +209,7 @@ export class Graph {
   // load for the old one finds itself stale and drops its result.
   // timer: the 15 s re-read, which doesn't search a folder again that held no repositories.
   refresh(cx, full = true, timer = false) {
-    const { cwd, on } = location(this.folder), context = this.key();
+    const { cwd, on } = this.location(), context = this.key();
     if (context !== this.context) { this.enter(context); full = true; }
     if (!cwd) { this.state = "nofolder"; return; }
     // A repository opened from the Manygit list loads in place of the folder.
@@ -853,7 +864,6 @@ export class Graph {
   }
 
   render(cx) {
-    if (this.key() !== this.context) this.refresh(cx);
     const changed = shared("git-graph.changed");
     const savedCols = shared("git-graph.columns"), seen = JSON.stringify(savedCols ?? null);
     if (!this.drag && seen !== this.seenCols) { this.seenCols = seen; this.cols = withDefaults(savedCols); }
