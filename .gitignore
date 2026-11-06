@@ -1,0 +1,6 @@
+gpui-kit.d.ts
+jsconfig.json
+*.error
+*.tmp
+*.bak
+*.before-*
